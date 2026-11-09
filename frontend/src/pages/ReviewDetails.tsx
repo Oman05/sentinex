@@ -1,0 +1,241 @@
+import { useEffect, useState } from "react";
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Play, AlertTriangle } from 'lucide-react';
+import { EvidenceViewer } from '../components/EvidenceViewer';
+import { ComparisonViewer } from '../components/ComparisonViewer';
+import { AIAnalysisPanel } from '../components/AIAnalysisPanel';
+import { TrackTimeline } from '../components/TrackTimeline';
+import { AuditTimeline } from '../components/AuditTimeline';
+import { ReviewDecisionPanel } from '../components/ReviewDecisionPanel';
+import type { ReviewEventDetail, TrackHistory, ReviewHistory, ReviewDecision, EvidenceRequestType } from '../types/review';
+import { 
+  getReviewEvent, 
+  getTrackHistory, 
+  getReviewHistory,
+  startReview,
+  submitDecision,
+  requestEvidence
+} from '../services/reviewApi';
+import { StatusBadge } from '../components/StatusBadge';
+
+export default function ReviewDetails() {
+  const { eventId } = useParams<{ eventId: string }>();
+  const navigate = useNavigate();
+  
+  const [event, setEvent] = useState<ReviewEventDetail | null>(null);
+  const [trackHistory, setTrackHistory] = useState<TrackHistory | null>(null);
+  const [auditHistory, setAuditHistory] = useState<ReviewHistory | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('evidence');
+  const [activeAnalysisTab, setActiveAnalysisTab] = useState('ai');
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const loadData = async () => {
+    if (!eventId) return;
+    try {
+      setLoading(true);
+      const id = parseInt(eventId);
+      const [eventData, trackData, auditData] = await Promise.all([
+        getReviewEvent(id),
+        getTrackHistory(id).catch(() => null),
+        getReviewHistory(id)
+      ]);
+      setEvent(eventData);
+      setTrackHistory(trackData);
+      setAuditHistory(auditData);
+    } catch (error) {
+      console.error('Failed to load event details', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [eventId]);
+
+  const handleStartReview = async () => {
+    if (!event) return;
+    try {
+      setActionLoading(true);
+      await startReview(event.id);
+      await loadData(); // Reload to get updated state and audit log
+    } catch (error) {
+      console.error('Failed to start review', error);
+      alert('Failed to start review. See console for details.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSubmitDecision = async (decision: ReviewDecision, notes: string) => {
+    if (!event) return;
+    try {
+      setActionLoading(true);
+      await submitDecision(event.id, { decision, notes });
+      await loadData();
+    } catch (error) {
+      console.error('Failed to submit decision', error);
+      alert('Failed to submit decision.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRequestEvidence = async (type: EvidenceRequestType, notes: string) => {
+    if (!event) return;
+    try {
+      setActionLoading(true);
+      await requestEvidence(event.id, { request_type: type, notes });
+      await loadData();
+    } catch (error) {
+      console.error('Failed to request evidence', error);
+      alert('Failed to request evidence.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  if (loading || !event) {
+    return <div className="p-8 text-center">Loading event details...</div>;
+  }
+
+  return (
+    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => navigate('/review')}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+              POSSIBLE MATCH REVIEW
+              <StatusBadge status={event.status} />
+            </h1>
+            <p className="text-sm text-gray-500">
+              Event ID: {event.match_event_id} • Case: {event.case_number}
+            </p>
+          </div>
+        </div>
+        
+        {event.module9_notified && (
+          <div className="bg-blue-50 text-blue-700 px-3 py-1 rounded text-sm border border-blue-200 flex items-center gap-1">
+            <span>Module 9 Notified</span>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-amber-100 border-l-4 border-amber-500 p-4 text-amber-900">
+        <div className="flex items-start">
+          <AlertTriangle className="w-5 h-5 mr-2 mt-0.5" />
+          <div>
+            <p className="font-bold">POSSIBLE MATCH — HUMAN REVIEW REQUIRED</p>
+            <p className="text-sm mt-1">This is an algorithmic similarity signal generated by the AI system. It does not establish identity. Authorized human review is required before any operational decision.</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-4">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
+            <div className="flex border-b border-gray-200 mb-2">
+              <button 
+                className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === 'evidence' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setActiveTab('evidence')}
+              >
+                Evidence Overview
+              </button>
+              <button 
+                className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === 'comparison' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setActiveTab('comparison')}
+              >
+                Side-by-Side Comparison
+              </button>
+            </div>
+            
+            <div className="min-h-[400px]">
+              {activeTab === 'evidence' ? (
+                <EvidenceViewer event={event} />
+              ) : (
+                <ComparisonViewer event={event} />
+              )}
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
+             <div className="flex border-b border-gray-200 mb-4">
+              <button 
+                className={`px-4 py-2 text-sm font-medium border-b-2 ${activeAnalysisTab === 'ai' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setActiveAnalysisTab('ai')}
+              >
+                AI Analysis
+              </button>
+              <button 
+                className={`px-4 py-2 text-sm font-medium border-b-2 ${activeAnalysisTab === 'track' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setActiveAnalysisTab('track')}
+              >
+                Track History
+              </button>
+            </div>
+            
+            {activeAnalysisTab === 'ai' ? (
+              <AIAnalysisPanel event={event} />
+            ) : (
+              <TrackTimeline track={trackHistory} />
+            )}
+          </div>
+        </div>
+
+        <div className="lg:col-span-1 space-y-6">
+          {event.status === 'PENDING_REVIEW' ? (
+            <div className="bg-white rounded-lg shadow border border-blue-200 p-6 text-center">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Ready for Review</h3>
+              <p className="text-sm text-gray-600 mb-6">You must start the review process to record your examination and unlock decision options.</p>
+              <button
+                onClick={handleStartReview}
+                disabled={actionLoading}
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+              >
+                <Play className="w-5 h-5" />
+                {actionLoading ? 'Starting...' : 'Start Official Review'}
+              </button>
+            </div>
+          ) : (
+            <ReviewDecisionPanel 
+              status={event.status} 
+              onSubmitDecision={handleSubmitDecision}
+              onRequestEvidence={handleRequestEvidence}
+            />
+          )}
+
+          <AuditTimeline entries={auditHistory?.entries || []} />
+          
+          <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
+            <h3 className="text-sm font-semibold text-gray-800 mb-3 border-b pb-2">Location & Metadata</h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Camera ID:</span>
+                <span className="font-medium">{event.camera_id || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Location:</span>
+                <span className="font-medium text-right">{event.camera_location || 'Unknown'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">System Priority:</span>
+                <span>{event.priority ? <StatusBadge status={event.priority} type="priority" /> : 'Normal'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Query Quality:</span>
+                <span className="font-medium">{event.query_quality_score?.toFixed(2) || 'N/A'}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

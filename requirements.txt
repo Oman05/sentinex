@@ -1,0 +1,40 @@
+fastapi==0.115.0
+uvicorn==0.30.6
+sqlalchemy==2.0.35
+pydantic==2.9.2
+pydantic-settings==2.5.2
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.1.2
+python-dotenv==1.0.1
+pytest==8.3.2
+httpx==0.27.2
+psycopg2-binary
+email-validator==2.1.0.post1
+
+Pillow==10.4.0
+python-multipart==0.0.9
+cryptography==43.0.1
+opencv-python-headless==4.10.0.84
+
+# ============================================================================
+# MODULE 5: AI Video Processing
+# ============================================================================
+
+# Person detection — YOLOv8 (Ultralytics, AGPL-3.0)
+# Downloads yolov8n.pt automatically on first run (~6 MB)
+ultralytics>=8.3.0
+
+# Face detection — MTCNN via facenet-pytorch (MIT)
+# Weights bundled with the package (~2 MB)
+facenet-pytorch>=2.6.0
+
+# PyTorch — CPU variant shown below.
+# For GPU (CUDA 12.x), install separately:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+# See: https://pytorch.org/get-started/locally/
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Hungarian algorithm for optimal IoU tracker assignment
+scipy>=1.11.0
