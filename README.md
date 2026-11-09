@@ -454,3 +454,4 @@ sentinex/
 - **Biometric Data Protection**: Facial feature representations are stored as non-reversible mathematical vector embeddings, never as raw unencrypted biometric templates.
 - **Strict Human Oversight**: Algorithmic match scores are purely evidentiary suggestions. In accordance with ethical AI governance standards, human verification is mandatory prior to any law enforcement dispatch.
 # sentinex
+# sentinex
